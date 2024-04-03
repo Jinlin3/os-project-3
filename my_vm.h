@@ -1,9 +1,9 @@
 #include <stddef.h>
 
-#define MAX_MEMSIZE (1UL<<32)
-#define MEMSIZE (1UL<<30)
-#define TLB_ENTRIES 256
-
+#define MAX_MEMSIZE (1ULL<<32) // Virtual Memory (2^32 = 4 GB)
+#define MEMSIZE (1UL<<30) // Physical Memory (2^30 = 1 GB)
+#define PAGE_SIZE (1UL<<13) // Page Size (2^13 = 8 KB)
+#define TLB_ENTRIES 256 // Translation Lookup Buffer entries?
 
 void set_physical_mem();
 
