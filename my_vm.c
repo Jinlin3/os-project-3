@@ -2,14 +2,47 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 //TODO: Define static variables and structs, include headers, etc.
 
+// Structures
 void* physical_mem;
-size_t num_physical_pages;
-size_t num_virtual_pages;
 char* physical_bitmap;
 char* virtual_bitmap;
+
+/* Variables */
+// Number of physical and virtual pages
+size_t num_physical_pages;
+size_t num_virtual_pages;
+
+// Number of bits per level
+size_t outer_level_bits;
+size_t inner_level_bits;
+size_t page_offset;
+
+/* sets the bit split for the pages */
+void set_split() {
+    // Number of pages needed
+    num_physical_pages = MEMSIZE / PAGE_SIZE;
+    num_virtual_pages = MAX_MEMSIZE / PAGE_SIZE;
+    // Setting number of bits for each
+    int bits_left = 32;
+    page_offset = (int)log2(PAGE_SIZE);
+    bits_left -= page_offset;
+    if (bits_left % 2 != 0) {
+        inner_level_bits = (bits_left / 2) + 1;
+    } else {
+        inner_level_bits = bits_left / 2;
+    }
+    bits_left -= inner_level_bits;
+    outer_level_bits = bits_left;
+    
+    // Print statements for testing split
+    printf("page offset: %d\n", page_offset);
+    printf("inner level bits: %d\n", inner_level_bits);
+    printf("outer level bits: %d\n", outer_level_bits);
+}
 
 void set_physical_mem() {
     // Allocating physical memory
@@ -17,14 +50,9 @@ void set_physical_mem() {
     if (physical_mem == NULL) {
         perror("physical memory allocation failed!\n");
     }
-
-    // Number of pages needed
-    num_physical_pages = MEMSIZE / PAGE_SIZE;
-    num_virtual_pages = MAX_MEMSIZE / PAGE_SIZE;
-
-    /* Creating bitmaps
-        Need to divide by 8 since malloc uses bytes instead of bits
-    */
+    // Setting split
+    set_split();
+    // Initializing bitmaps - Need to divide by 8 since malloc uses bytes instead of bits
     physical_bitmap = (char*)malloc(num_physical_pages / 8);
     if (physical_bitmap == NULL) {
         perror("physical bitmap allocation failed!\n");
@@ -40,6 +68,17 @@ void set_physical_mem() {
 
     printf("Number of pages in physical memory: %zu\n", num_physical_pages);
     printf("Number of pages in virtual memory: %zu\n", num_virtual_pages);
+    printf("Page size: %ld\n", PAGE_SIZE);
+    printf("Size of outer table: %d\n", sizeof(outer_level_table));
+    printf("Size of inner table: %d\n", sizeof(inner_level_table));
+    printf("Size of page table entry: %d\n", sizeof(page_table_entry));
+
+    // Initializing outer level page table
+    /*
+        TODO:
+        1. Determine split between outer and inner level table
+        2. Check space for 
+    */
 }
 
 void * translate(unsigned int vp){

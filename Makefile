@@ -12,7 +12,7 @@ all: test
 
 # Rule to make the test executable
 test: test.o my_vm.a
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^ -lm
 
 # Rule to make the static library
 my_vm.a: my_vm.o

@@ -5,6 +5,21 @@
 #define PAGE_SIZE (1UL<<13) // Page Size (2^13 = 8 KB)
 #define TLB_ENTRIES 256 // Translation Lookup Buffer entries?
 
+typedef struct {
+    unsigned int present: 1; // 0 or 1 depending on whether the page is present in memory
+    unsigned int frame: 31; // the physical page that corresponds with the virtual address
+} page_table_entry;
+
+typedef struct {
+    unsigned int num_of_entries; // number of entries in the inner page table
+    page_table_entry* entries; // the array of entries
+} inner_level_table;
+
+typedef struct {
+    unsigned int num_of_entries;
+    inner_level_table** entries;
+} outer_level_table;
+
 void set_physical_mem();
 
 void * translate(unsigned int vp);
