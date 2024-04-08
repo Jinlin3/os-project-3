@@ -22,6 +22,8 @@ typedef struct {
 
 void set_physical_mem();
 
+void initialize_tables();
+
 void * translate(unsigned int vp);
 
 unsigned int page_map(unsigned int vp);

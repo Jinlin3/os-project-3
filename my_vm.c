@@ -10,6 +10,7 @@
 void* physical_mem;
 char* physical_bitmap;
 char* virtual_bitmap;
+outer_level_table* directory;
 
 /* Variables */
 // Number of physical and virtual pages
@@ -23,6 +24,7 @@ size_t page_offset;
 
 /* sets the bit split for the pages */
 void set_split() {
+    printf("BIT SPLIT\n");
     // Number of pages needed
     num_physical_pages = MEMSIZE / PAGE_SIZE;
     num_virtual_pages = MAX_MEMSIZE / PAGE_SIZE;
@@ -44,7 +46,33 @@ void set_split() {
     printf("outer level bits: %d\n", outer_level_bits);
 }
 
+/* Initializes directory AKA outer level table */
+void initialize_tables() {
+    printf("INITIALIZE DIRECTORY\n");
+
+    // initialize the directory at the start of physical memory or page 1
+    directory = (outer_level_table*)physical_mem;
+    directory->num_of_entries = 1 << outer_level_bits;
+
+    // initialize the entries array right after the directory
+    directory->entries = (inner_level_table**)((char*)directory + sizeof(outer_level_table));
+
+    // create a position pointer that first points to where the first inner table is going to be placed on page 2
+    char* current_position = (char*)physical_mem + PAGE_SIZE;
+    
+    printf("start of physical mem: %p\n", physical_mem);
+    printf("first inner table on page 2: %p\n", current_position);
+
+    // add inner page tables starting from page 2
+    for (int i = 0; i < directory->num_of_entries; i++) {
+        printf("Inner table %d at %p\n", i+1, current_position);
+        directory->entries[i] = (inner_level_table*)current_position;
+        current_position += PAGE_SIZE;
+    }
+}
+
 void set_physical_mem() {
+    printf("SET PHYSICAL MEM\n");
     // Allocating physical memory
     physical_mem = malloc(MEMSIZE);
     if (physical_mem == NULL) {
@@ -52,6 +80,7 @@ void set_physical_mem() {
     }
     // Setting split
     set_split();
+    initialize_tables();
     // Initializing bitmaps - Need to divide by 8 since malloc uses bytes instead of bits
     physical_bitmap = (char*)malloc(num_physical_pages / 8);
     if (physical_bitmap == NULL) {
@@ -77,7 +106,7 @@ void set_physical_mem() {
     /*
         TODO:
         1. Determine split between outer and inner level table
-        2. Check space for 
+        2. Initialize tables
     */
 }
 
