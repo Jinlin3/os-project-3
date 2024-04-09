@@ -7,7 +7,7 @@
 
 typedef struct {
     unsigned int present: 1; // 0 or 1 depending on whether the page is present in memory
-    unsigned int frame: 31; // the physical page that corresponds with the virtual address
+    unsigned int page: 31; // the physical page that corresponds with the virtual address
 } page_table_entry;
 
 typedef struct {

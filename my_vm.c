@@ -55,7 +55,7 @@ void initialize_tables() {
     directory->num_of_entries = 1 << outer_level_bits;
 
     // initialize the entries array right after the directory
-    directory->entries = (inner_level_table**)((char*)directory + sizeof(outer_level_table));
+    directory->entries = (inner_level_table**)(physical_mem + sizeof(outer_level_table));
 
     // create a position pointer that first points to where the first inner table is going to be placed on page 2
     char* current_position = (char*)physical_mem + PAGE_SIZE;
@@ -66,7 +66,17 @@ void initialize_tables() {
     // add inner page tables starting from page 2
     for (int i = 0; i < directory->num_of_entries; i++) {
         printf("Inner table %d at %p\n", i+1, current_position);
+        // inner level table points to the current position
         directory->entries[i] = (inner_level_table*)current_position;
+        // initializing number of entries in each table
+        directory->entries[i]->num_of_entries = 1 << inner_level_bits;
+        // calculating starting position for the inner table entries
+        page_table_entry* entries_start = (page_table_entry*)(current_position + sizeof(inner_level_table));
+        // connecting inner level table entries and entries_start location
+        directory->entries[i]->entries = entries_start;
+        for (int j = 0; j < (1 << inner_level_bits); j++) {
+            entries_start[j].present = 0;
+        }
         current_position += PAGE_SIZE;
     }
 }
@@ -98,20 +108,44 @@ void set_physical_mem() {
     printf("Number of pages in physical memory: %zu\n", num_physical_pages);
     printf("Number of pages in virtual memory: %zu\n", num_virtual_pages);
     printf("Page size: %ld\n", PAGE_SIZE);
-    printf("Size of outer table: %d\n", sizeof(outer_level_table));
-    printf("Size of inner table: %d\n", sizeof(inner_level_table));
-    printf("Size of page table entry: %d\n", sizeof(page_table_entry));
-
-    // Initializing outer level page table
-    /*
-        TODO:
-        1. Determine split between outer and inner level table
-        2. Initialize tables
-    */
 }
 
-void * translate(unsigned int vp){
-    //TODO: Finish
+void* translate(unsigned int vp){
+    printf("TRANSLATE\n");
+    /*
+    TO DO:
+    1. isolate pdi, pti, and offset bits
+    2. access the page directory entry using pdi
+    3. access the inner level table entry using pti
+    4. calculate the physical address
+    */
+   // page directory index bit ops
+   unsigned int pdi = (vp >> (inner_level_bits + page_offset));
+   // page table index bit ops
+   unsigned int pti = vp >> page_offset;
+   unsigned int pti_mask = (1 << inner_level_bits) - 1;
+   pti = pti & pti_mask;
+   // page offset bit ops
+   unsigned int offset;
+   unsigned int offset_mask = (1 << page_offset) - 1;
+   offset = vp & offset_mask;
+   // print statements
+   printf("pdi: %d\n", pdi);
+   printf("pti: %d\n", pti);
+   printf("page offset: %d\n", offset);
+
+   // Check the page directory
+    if (directory->entries[pdi] == NULL) {
+        perror("page fault!\n");
+        return NULL;
+    }
+   // Check the inner level table
+   inner_level_table* table = directory->entries[pdi];
+   unsigned int physical_page_address = table->entries[pti].page * PAGE_SIZE;
+   char* physical_mem_base = (char*)physical_mem;
+   void* physical_address = (void*)(physical_mem_base + physical_page_address + offset);
+
+   return physical_address;
 }
 
 unsigned int page_map(unsigned int vp){
