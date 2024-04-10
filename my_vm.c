@@ -102,7 +102,7 @@ void initialize_tables() {
 unsigned int find_free_page(char* bitmap, size_t bitmap_size) {
     printf("FIND_FREE_PAGE()\n");
     for (int i = 0; i < bitmap_size / 8; i++) {
-        printf("iterating thru byte %zu - bits %zu to %zu\n", i+1, i*8+1, i*8+8);
+        // printf("iterating thru byte %zu - bits %zu to %zu\n", i+1, i*8+1, i*8+8);
         if (bitmap[i] != (char)0xFF) {
             printf("FOUND in byte %zu!\n", i+1);
             for (int j = 0; j < 8; j++) {
@@ -118,11 +118,16 @@ unsigned int find_free_page(char* bitmap, size_t bitmap_size) {
 
 void set_physical_mem() {
     printf("SET_PHYSICAL_MEM\n");
+    
+    // Analyzing virtual and physical memory bits
+    set_split();
+
     // Allocating physical memory
     physical_mem = malloc(MEMSIZE);
     if (physical_mem == NULL) {
         perror("physical memory allocation failed!\n");
     }
+
     // Initializing bitmaps - Need to divide by 8 since malloc uses bytes instead of bits
     num_physical_bytes = num_physical_pages / 8;
     physical_bitmap = (char*)malloc(num_physical_bytes);
@@ -134,11 +139,12 @@ void set_physical_mem() {
     if (virtual_bitmap == NULL) {
         perror("virtual bitmap allocation failed!\n");
     }
+
     // Setting allocated memory to 0
     memset(physical_bitmap, 0, num_physical_bytes);
     memset(virtual_bitmap, 0, num_virtual_bytes);
-    // Setting split
-    set_split();
+
+    // Initializing page tables and entries
     initialize_tables();
 
     printf("Number of pages in physical memory: %zu\n", num_physical_pages);

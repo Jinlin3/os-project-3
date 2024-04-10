@@ -20,9 +20,15 @@ typedef struct {
     inner_level_table** entries;
 } outer_level_table;
 
-void set_physical_mem();
+void set_bit(char* bitmap, unsigned int page_number);
+
+void set_split();
 
 void initialize_tables();
+
+unsigned int find_free_page(char* bitmap, size_t bitmap_size);
+
+void set_physical_mem();
 
 void * translate(unsigned int vp);
 
