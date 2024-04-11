@@ -20,7 +20,15 @@ typedef struct {
     inner_level_table** entries;
 } outer_level_table;
 
+typedef struct {
+    unsigned int vpn;
+    unsigned int ppn;
+    int present;
+} tlb_entry;
+
 void set_bit(char* bitmap, unsigned int page_number);
+
+void unset_bit(char* bitmap, unsigned int page_number);
 
 void set_split();
 

@@ -61,5 +61,7 @@ int main() {
     t_free((unsigned int)mat2, m * n * sizeof(int));
     t_free((unsigned int)result, l * n * sizeof(int));
 
+    print_TLB_missrate();
+
     return 0;
 }
