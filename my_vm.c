@@ -24,7 +24,7 @@ size_t outer_level_bits;
 size_t inner_level_bits;
 size_t page_offset;
 
-/* Sets a bit given a bitmap */
+/* Sets a bit given a bitmap; pages are 1-indexed */
 void set_bit(char* bitmap, unsigned int page_number) {
     page_number -= 1;
     unsigned int byte_index = page_number / 8;
@@ -32,9 +32,16 @@ void set_bit(char* bitmap, unsigned int page_number) {
     bitmap[byte_index] |= (1 << bit_position);
 }
 
+void unset_bit(char* bitmap, unsigned int page_number) {
+    page_number -= 1;
+    unsigned int byte_index = page_number / 8;
+    unsigned int bit_position = page_number % 8;
+    bitmap[byte_index] &= ~(1 << bit_position);
+}
+
 /* sets the bit split for the pages */
 void set_split() {
-    printf("SET_SPLIT()\n");
+    printf("    SET_SPLIT()\n");
     // Number of pages needed
     num_physical_pages = MEMSIZE / PAGE_SIZE;
     num_virtual_pages = MAX_MEMSIZE / PAGE_SIZE;
@@ -58,7 +65,7 @@ void set_split() {
 
 /* Initializes directory AKA outer level table */
 void initialize_tables() {
-    printf("INITIALIZE_TABLES()\n");
+    printf("    INITIALIZE_TABLES()\n");
 
     // initialize the directory at the start of physical memory or page 1
     directory = (outer_level_table*)physical_mem;
@@ -79,7 +86,7 @@ void initialize_tables() {
     // add inner page tables starting from page 2
     printf("Allocating inner tables\n");
     for (int i = 0; i < directory->num_of_entries; i++) {
-        printf("Inner table %d at %p\n", i+1, current_position);
+        // printf("Inner table %d at %p\n", i+1, current_position);
         // inner level table points to the current position
         directory->entries[i] = (inner_level_table*)current_position;
         // setting bit to 1
@@ -100,7 +107,7 @@ void initialize_tables() {
 /* Uses the physical or virtual bitmap to find the next available physical page */
 /* Returns the page number */
 unsigned int find_free_page(char* bitmap, size_t bitmap_size) {
-    printf("FIND_FREE_PAGE()\n");
+    printf("    FIND_FREE_PAGE()\n");
     for (int i = 0; i < bitmap_size / 8; i++) {
         // printf("iterating thru byte %zu - bits %zu to %zu\n", i+1, i*8+1, i*8+8);
         if (bitmap[i] != (char)0xFF) {
@@ -113,11 +120,11 @@ unsigned int find_free_page(char* bitmap, size_t bitmap_size) {
             }
         }
     }
-    return 0;
+    return (unsigned int)-1;
 }
 
 void set_physical_mem() {
-    printf("SET_PHYSICAL_MEM\n");
+    printf("    SET_PHYSICAL_MEM\n");
     
     // Analyzing virtual and physical memory bits
     set_split();
@@ -157,7 +164,7 @@ void set_physical_mem() {
 }
 
 void* translate(unsigned int vp){
-    printf("TRANSLATE()\n");
+    printf("    TRANSLATE()\n");
     /*
     TO DO:
     1. isolate pdi, pti, and offset bits
@@ -167,14 +174,14 @@ void* translate(unsigned int vp){
     */
    // page directory index bit ops
    unsigned int pdi = (vp >> (inner_level_bits + page_offset));
+
    // page table index bit ops
-   unsigned int pti = vp >> page_offset;
    unsigned int pti_mask = (1 << inner_level_bits) - 1;
-   pti = pti & pti_mask;
-   // page offset bit ops
-   unsigned int offset;
+   unsigned int pti = (vp >> page_offset) & pti_mask;
+
+   // offset bit ops
    unsigned int offset_mask = (1 << page_offset) - 1;
-   offset = vp & offset_mask;
+   unsigned int offset = vp & offset_mask;
    // print statements
    printf("pdi: %d\n", pdi);
    printf("pti: %d\n", pti);
@@ -204,50 +211,123 @@ void* translate(unsigned int vp){
 }
 
 unsigned int page_map(unsigned int vp) {
-    printf("PAGE_MAP()\n");
+    printf("    PAGE_MAP()\n");
 
    // page directory index bit ops
-   unsigned int pdi = (vp >> inner_level_bits);
+   unsigned int pdi = (vp >> (inner_level_bits + page_offset));
 
    // page table index bit ops
-   unsigned int pti = vp & ((1 << inner_level_bits) - 1);
+   unsigned int pti_mask = (1 << inner_level_bits) - 1;
+   unsigned int pti = (vp >> page_offset) & pti_mask;
+
+   // offset bit ops
+   unsigned int offset_mask = (1 << page_offset) - 1;
+   unsigned int offset = vp & offset_mask;
 
    // print statements
    printf("pdi: %d\n", pdi);
    printf("pti: %d\n", pti);
-    // check if directory maps to the inner level table
 
+    // check if directory maps to the inner level table
     if (!directory->entries[pdi]) {
         printf("page fault!\n");
-        return -1;
+        return (unsigned int)-1;
     }
     inner_level_table* table = directory->entries[pdi];
 
     // if mapping is not present
-    if (table->entries[pti].present != 1) {
+    printf("page: %d, present: %d\n", table->entries[pti].page, table->entries[pti].present);
+    if (table->entries[pti].present != (unsigned int)1) {
+        printf("Virtual page %ld not mapped yet\n", (vp / PAGE_SIZE) + 1);
         unsigned int free_page = find_free_page(physical_bitmap, num_physical_pages);
         if (free_page == (unsigned int)-1) {
             printf("No free physical pages available\n");
-            return -1;
+            return (unsigned int)-1;
         }
         set_bit(physical_bitmap, free_page);
-        table->entries[pti].present = 1;
+        table->entries[pti].present = (unsigned int)1;
         table->entries[pti].page = free_page;
+        printf("page: %d, present: %d\n", table->entries[pti].page, table->entries[pti].present);
 
-        printf("Mapped virtual page %d to physical page %d\n", vp, free_page);
-        return 0;
+        printf("Mapped virtual page %ld to physical page %d\n", (vp / PAGE_SIZE) + 1, free_page);
+        return free_page;
     } else {
-        printf("Mapping already exists for virtual page %d\n", vp);
-        return -1;
+        printf("Virtual page %ld is already mapped to physical page %d\n", (vp / PAGE_SIZE) + 1, table->entries[pti].page);
+        return table->entries[pti].page;
     }
 }
 
-void * t_malloc(size_t n){
-    //TODO: Finish
+void* t_malloc(size_t n) {
+    printf("    T_MALLOC()\n");
+   // Calculating required number of pages
+   size_t num_of_pages = (n + PAGE_SIZE - 1) / PAGE_SIZE;
+   printf("number of pages needed: %d\n", num_of_pages);
+   
+   unsigned int first_virtual_address = 0; // virtual address we will return
+   unsigned int virtual_address;
+   unsigned int free_virtual_page;
+   // Finding free physical and virtual pages
+   for (int i = 0; i < num_of_pages; i++) {
+        // checking if there are free pages in physical memory
+        if (find_free_page(physical_bitmap, num_physical_pages) == -1) {
+            printf("No more memory in RAM\n");
+            return NULL;
+        }
+        // find a free virtual page
+        free_virtual_page = find_free_page(virtual_bitmap, num_virtual_pages);
+        /*
+        1. Convert virtual page number to a virtual address
+        2. Use page_map to map the virtual address to a physical address
+        3. Update bitmap
+        */
+        if (i == 0) {
+            first_virtual_address = ((free_virtual_page - 1) * PAGE_SIZE);
+            page_map(first_virtual_address);
+            set_bit(virtual_bitmap, free_virtual_page);
+        } else {
+            virtual_address = ((free_virtual_page - 1) * PAGE_SIZE);
+            page_map(virtual_address);
+            set_bit(virtual_bitmap, free_virtual_page);
+        }
+   }
+   return (void*)first_virtual_address;
 }
 
-int t_free(unsigned int vp, size_t n){
-    //TODO: Finish
+int t_free(unsigned int vp, size_t n) {
+    printf("    T_FREE\n");
+    // Calculating starting address and page using vp
+    unsigned int virtual_page = (vp / PAGE_SIZE) + 1;
+    unsigned int virtual_address = (virtual_page - 1) * PAGE_SIZE;
+    unsigned int physical_page;
+    printf("Starting page number: %d\n", virtual_page);
+    printf("Starting virtual address: %d\n", virtual_address);
+    for (int i = 0; i < n; i++) {
+        if (!translate(virtual_address)) {
+            printf("Virtual page %d has already been freed\n", virtual_page);
+            return -1;
+        } else {
+            // page directory index bit ops
+            unsigned int pdi = (virtual_address >> (inner_level_bits + page_offset));
+            // page table index bit ops
+            unsigned int pti_mask = (1 << inner_level_bits) - 1;
+            unsigned int pti = (virtual_address >> page_offset) & pti_mask;
+            // offset bit ops
+            unsigned int offset_mask = (1 << page_offset) - 1;
+            unsigned int offset = virtual_address & offset_mask;
+
+            inner_level_table* table = directory->entries[pdi];
+            physical_page = page_map(virtual_address);
+            printf("on physical page: %d\n", physical_page);
+            unset_bit(virtual_bitmap, virtual_page);
+            unset_bit(physical_bitmap, physical_page);
+            table->entries[pti].page = 0;
+            table->entries[pti].present = 0;
+            printf("Deallocated virtual page %d and physical page %d\n", virtual_page, physical_page);
+        }
+        virtual_page++;
+        virtual_address += PAGE_SIZE;
+    }
+    return 0;
 }
 
 int put_value(unsigned int vp, void *val, size_t n){
