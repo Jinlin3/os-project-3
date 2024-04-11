@@ -191,11 +191,9 @@ void* translate(unsigned int vp){
 unsigned int page_map(unsigned int vp) {
    // page directory index bit ops
    unsigned int pdi = (vp >> (inner_level_bits + page_offset));
-
    // page table index bit ops
    unsigned int pti_mask = (1 << inner_level_bits) - 1;
    unsigned int pti = (vp >> page_offset) & pti_mask;
-
    // offset bit ops
    unsigned int offset_mask = (1 << page_offset) - 1;
    unsigned int offset = vp & offset_mask;
